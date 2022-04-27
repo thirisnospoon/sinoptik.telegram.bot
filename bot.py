@@ -9,6 +9,16 @@ from secrets import *
 bot = telebot.TeleBot(superSecretProdBotToken)
 
 
+@bot.message_handler(commands=["getdbusers"])
+def getDBUsers(message):
+    if str(message.chat.id) == '33837822':
+        userList = getUsersFromDB()
+        for user in userList:
+            bot.send_message(message.chat.id, f'{user[2]} {user[3]} {user[5]}')
+    else:
+        bot.send_message(message.chat.id, 'Ви не адмін!')
+
+
 # event handlers
 @bot.message_handler(commands=["start"])
 def start(message):

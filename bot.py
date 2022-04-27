@@ -4,12 +4,10 @@ import schedule as schedule
 from dbFunctions import *
 from sinoptikParser import *
 import telebot
+from secrets import *
 
-bot = telebot.TeleBot('5309180153:AAF4JjUKn0dMM_3dT41zLsetvxwGWsac33w')
+bot = telebot.TeleBot(superSecretTestBotToken)
 
-
-# prod token
-# token = "5399602109:AAG_JUQOsU0sjbfghULDuZ3ZolBj6Pq_5v0"
 
 # event handlers
 @bot.message_handler(commands=["start"])
@@ -95,10 +93,10 @@ def addUserToDB(message):
     else:
         bot.send_message(message.chat.id, 'Додаємо місто до розсилки...')
         time.sleep(0.6)
-        addUser(message.from_user.id, message.from_user.first_name,
+        addUser(message.from_user.id, message.from_user.username, message.from_user.first_name,
                 message.from_user.last_name, inputText)
-        bot.send_message(message.chat.id, 'Місто ' + inputText[0].upper() + inputText[1:] + ' додано до розсилки кожні '
-                                                                                            '5 хвилин. ')
+        bot.send_message(message.chat.id, 'Місто ' + inputText[0].upper() + inputText[1:] + 'додано до розсилки кожен '
+                                                                                            'день о 11:00. ')
 
 
 def sendForecastToDBUsers():
@@ -112,7 +110,7 @@ def sendForecastToDBUsers():
 
 # Scheduled forecast sending
 def runScheduledSender():
-    schedule.every(5).minutes.do(sendForecastToDBUsers)
+    schedule.every().day.at("11:00").do(sendForecastToDBUsers)
     while True:
         schedule.run_pending()
         time.sleep(1)

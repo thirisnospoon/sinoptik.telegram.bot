@@ -15,6 +15,16 @@ def addUser(user_id: int, user_FirstName: str, user_LastName: str, user_city: st
     conn.commit()
 
 
+def userExistsInDB(user_id):
+    cursor.execute(f'SELECT EXISTS(SELECT 1 FROM users WHERE "user_id" = "{user_id}")')
+    checkResult = cursor.fetchone()
+
+    if str(checkResult) == '(1,)':
+        return True
+    else:
+        return False
+
+
 def getUsersFromDB():
     cursor.execute("SELECT * FROM users")
     rows = cursor.fetchall()
@@ -22,3 +32,5 @@ def getUsersFromDB():
     return rows
 
 
+def removeUserFromDB(user_id):
+    cursor.execute(f'DELETE FROM users WHERE "user_id" = "{user_id}"')

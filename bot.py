@@ -1,4 +1,6 @@
+import threading
 import time
+import schedule as schedule
 from dbFunctions import *
 from sinoptikParser import *
 import telebot
@@ -9,7 +11,6 @@ bot = telebot.TeleBot('5309180153:AAF4JjUKn0dMM_3dT41zLsetvxwGWsac33w')
 # prod token
 # token = "5399602109:AAG_JUQOsU0sjbfghULDuZ3ZolBj6Pq_5v0"
 
-
 # event handlers
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -17,22 +18,27 @@ def start(message):
     bot.send_message(message.chat.id, 'Введіть назву міста')
 
 
-@bot.message_handler(commands=["addSchedule"])
+@bot.message_handler(commands=["addschedule"])
 def addSchedule(message):
-    bot.send_message(message.chat.id, 'Додаємо розсилку. Введіть назву міста, для якого ви хочете '
-                                      'отримувати прогнози')
+    if userExistsInDB(message.chat.id):
+        bot.send_message(message.chat.id, 'Ви вже підписані на розсилку. Спочатку видаліть поточну розсилку командою \n'
+                                          '/removeschedule')
+    else:
+        bot.send_message(message.chat.id, 'Додаємо розсилку. Введіть назву міста, для якого ви хочете '
+                                          'отримувати прогнози')
 
-    bot.register_next_step_handler(message, addUserToDB)
+        bot.register_next_step_handler(message, addUserToDB)
 
 
-@bot.message_handler(commands=["/forceForecastSend"])
-def sendForecastToDBUsers():
-    usersList = getUsersFromDB()
-    for user in usersList:
-        try:
-            bot.send_message(user[1], getWeatherTextMessage(getWeatherData(user[5]), user[5]))
-        except:
-            pass
+@bot.message_handler(commands=["removeschedule"])
+def removeSchedule(message):
+    if userExistsInDB(message.chat.id):
+        removeUserFromDB(message.chat.id)
+        bot.send_message(message.chat.id, 'Ви успішно відписані від розсилки. Знову підписатися можна командою \n '
+                                          '/addschedule')
+    else:
+        bot.send_message(message.chat.id, 'Ви і так не підписані на розсилку. Спочатку підпишіться командою \n '
+                                          '/addschedule')
 
 
 @bot.message_handler(commands=["10days"])
@@ -84,15 +90,36 @@ def send10daysWeatherForecast(message):
 def addUserToDB(message):
     inputText = message.text.replace(" ", "-")
     if requests.get('https://ua.sinoptik.ua/погода-' + inputText + '/10-днів').status_code == 404:
-        bot.send_message(message.chat.id, 'міста в базі немає. введіть нормально місто')
+        bot.send_message(message.chat.id, 'Міста в базі немає. Введіть нормальне місто')
         bot.register_next_step_handler(message, addUserToDB)
     else:
         bot.send_message(message.chat.id, 'Додаємо місто до розсилки...')
         time.sleep(0.6)
         addUser(message.from_user.id, message.from_user.first_name,
                 message.from_user.last_name, inputText)
-        bot.send_message(message.chat.id, 'Місто ' + inputText[0].upper() + inputText[1:] + ' додано до розсилки. ')
+        bot.send_message(message.chat.id, 'Місто ' + inputText[0].upper() + inputText[1:] + ' додано до розсилки кожні '
+                                                                                            '5 хвилин. ')
 
+
+def sendForecastToDBUsers():
+    usersList = getUsersFromDB()
+    for user in usersList:
+        try:
+            bot.send_message(user[1], getWeatherTextMessage(getWeatherData(user[5]), user[5]))
+        finally:
+            pass
+
+
+# Scheduled forecast sending
+def runScheduledSender():
+    schedule.every(5).minutes.do(sendForecastToDBUsers)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
+scheduleThread = threading.Thread(target=runScheduledSender)
+scheduleThread.start()
 
 # bot start
 bot.polling(none_stop=True, interval=0)

@@ -6,7 +6,7 @@ from sinoptikParser import *
 import telebot
 from secrets import *
 
-bot = telebot.TeleBot(superSecretTestBotToken)
+bot = telebot.TeleBot(superSecretProdBotToken)
 
 
 # event handlers

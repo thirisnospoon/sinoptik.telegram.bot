@@ -1,3 +1,5 @@
+import time
+from dbFunctions import *
 from sinoptikParser import *
 import telebot
 
@@ -11,13 +13,56 @@ bot = telebot.TeleBot('5309180153:AAF4JjUKn0dMM_3dT41zLsetvxwGWsac33w')
 # event handlers
 @bot.message_handler(commands=["start"])
 def start(message):
+    bot.send_message(message.chat.id, 'Привіт, ' + message.from_user.first_name)
     bot.send_message(message.chat.id, 'Введіть назву міста')
+
+
+@bot.message_handler(commands=["addSchedule"])
+def addSchedule(message):
+    bot.send_message(message.chat.id, 'Додаємо розсилку. Введіть назву міста, для якого ви хочете '
+                                      'отримувати прогнози')
+
+    bot.register_next_step_handler(message, addUserToDB)
+
+
+@bot.message_handler(commands=["/forceForecastSend"])
+def sendForecastToDBUsers():
+    usersList = getUsersFromDB()
+    for user in usersList:
+        try:
+            bot.send_message(user[1], getWeatherTextMessage(getWeatherData(user[5]), user[5]))
+        except:
+            pass
 
 
 @bot.message_handler(commands=["10days"])
 def forecast10days(message):
-    bot.send_message(message.from_user.id, 'Введіть назву міста')
-    bot.register_next_step_handler(message, send10daysWeatherForecast)
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton(text='Київ', callback_data='Київ'))
+    markup.add(telebot.types.InlineKeyboardButton(text='Хмельницький', callback_data='Хмельницький'))
+    markup.add(telebot.types.InlineKeyboardButton(text='Кропивницький', callback_data='Кропивницький'))
+    markup.add(telebot.types.InlineKeyboardButton(text='Львів', callback_data='Львів'))
+    markup.add(telebot.types.InlineKeyboardButton(text='Кривий Ріг', callback_data='Кривий Ріг'))
+    bot.send_message(message.chat.id, text="Виберіть місто зі списку", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def query_handler(call):
+    bot.answer_callback_query(callback_query_id=call.id, text=call.data + '? ОК!')
+    answer = ''
+    if call.data == 'Київ':
+        answer = 'Київ'
+    elif call.data == 'Хмельницький':
+        answer = 'Хмельницький'
+    elif call.data == 'Кропивницький':
+        answer = 'Кропивницький'
+    elif call.data == 'Львів':
+        answer = 'Львів'
+    elif call.data == 'Кривий Ріг':
+        answer = 'Кривий Ріг'
+
+    answer = answer.replace(" ", "-")
+    bot.send_message(call.message.chat.id, get10DaysWeatherForecast(getWeatherData(answer), answer))
 
 
 @bot.message_handler(content_types=['text'])
@@ -34,6 +79,19 @@ def get_text_messages(message):
 def send10daysWeatherForecast(message):
     cityName = message.text
     bot.send_message(message.from_user.id, get10DaysWeatherForecast(getWeatherData(cityName), cityName));
+
+
+def addUserToDB(message):
+    inputText = message.text.replace(" ", "-")
+    if requests.get('https://ua.sinoptik.ua/погода-' + inputText + '/10-днів').status_code == 404:
+        bot.send_message(message.chat.id, 'міста в базі немає. введіть нормально місто')
+        bot.register_next_step_handler(message, addUserToDB)
+    else:
+        bot.send_message(message.chat.id, 'Додаємо місто до розсилки...')
+        time.sleep(0.6)
+        addUser(message.from_user.id, message.from_user.first_name,
+                message.from_user.last_name, inputText)
+        bot.send_message(message.chat.id, 'Місто ' + inputText[0].upper() + inputText[1:] + ' додано до розсилки. ')
 
 
 # bot start
